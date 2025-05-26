@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="300">
+  <title>Binance Futures Testnet Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.min.js"></script>
+  <style>
+    /* Basic Tailwind-like styles */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.5; }
+    .min-h-screen { min-height: 100vh; }
+    .bg-gray-100 { background-color: #f3f4f6; }
+    .p-6 { padding: 1.5rem; }
+    .text-3xl { font-size: 1.875rem; }
+    .font-bold { font-weight: 700; }
+    .text-center { text-align: center; }
+    .mb-8 { margin-bottom: 2rem; }
+    .text-red-500 { color: #ef4444; }
+    .bg-white { background-color: white; }
+    .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+    .rounded-lg { border-radius: 0.5rem; }
+    .mb-6 { margin-bottom: 1.5rem; }
+    .text-xl { font-size: 1.25rem; }
+    .font-semibold { font-weight: 600; }
+    .mb-4 { margin-bottom: 1rem; }
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .gap-4 { gap: 1rem; }
+    .w-full { width: 100%; }
+    .text-left { text-align: left; }
+    .bg-gray-200 { background-color: #e5e7eb; }
+    .p-2 { padding: 0.5rem; }
+    .border-b { border-bottom: 1px solid #e5e7eb; }
+    /* Debug log styles - commented out but kept for future use
+    .debug-log { 
+      background-color: #1e1e1e; 
+      color: #00ff00; 
+      padding: 1rem; 
+      font-family: monospace; 
+      max-height: 300px; 
+      overflow-y: auto; 
+      margin-bottom: 1rem;
+      white-space: pre-wrap;
+      border-radius: 0.5rem;
+    }
+    */
+    @media (min-width: 768px) {
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <p>Loading dashboard... If this persists, check the browser console (F12).</p>
+  </div>
+
+  <script>
+    // Debug logger - kept but not displayed in UI
+    const debugLog = [];
+    
+    function log(message, data) {
+      const timestamp = new Date().toISOString();
+      const logEntry = `[${timestamp}] ${message}`;
+      
+      if (data !== undefined) {
+        console.log(logEntry, data);
+        debugLog.push(`${logEntry} ${JSON.stringify(data, null, 2)}`);
+      } else {
+        console.log(logEntry);
+        debugLog.push(logEntry);
+      }
+      
+      // Debug log display is commented out but code is kept for future use
+      /*
+      const logElement = document.getElementById('debug-log');
+      if (logElement) {
+        logElement.textContent = debugLog.join('\n');
+        logElement.scrollTop = logElement.scrollHeight;
+      }
+      */
+    }
+
+    // Error handler
+    window.onerror = function(message, source, lineno, colno, error) {
+      log(`GLOBAL ERROR: ${message}`, { source, lineno, colno, stack: error?.stack });
+      return false;
+    };
+
+    // Intercept fetch
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      log(`Fetch request to: ${args[0]}`);
+      
+      return originalFetch.apply(this, args)
+        .then(response => {
+          log(`Fetch response from: ${args[0]}, status: ${response.status}`);
+          return response;
+        })
+        .catch(error => {
+          log(`Fetch error for: ${args[0]}`, error);
+          throw error;
+        });
+    };
+
+    // Format date to 24-hour format with timezone correction (+1 hour)
+    function formatDateTo24Hour(dateString) {
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+          return dateString; // Return original if invalid
+        }
+        
+        // Add 1 hour to fix the timezone issue
+        const correctedDate = new Date(date.getTime() + (60 * 60 * 1000 * 2));
+        
+                                       
+        // Format: YYYY-MM-DD HH:MM:SS
+        return correctedDate.toISOString().replace('T', ' ').substring(0, 19);
+      } catch (err) {
+        log(`Date formatting error for: ${dateString}`, err);
+        return dateString; // Return original on error
+      }
+    }
+
+    log("Debug logging initialized");
+  </script>
+
+  <script>
+    // Simple Dashboard component without JSX or Babel
+    function renderDashboard() {
+      log("Starting dashboard render");
+      
+      try {
+        // State variables
+        let balance = null;
+        let pnl = null;
+        let transactions = [];
+        let error = null;
+        let loading = true;
+
+        // API base URL - updated for Glitch deployment
+        const API_BASE_URL = ""; // Empty string for same-origin requests
+        
+        // Create root element without debug log
+        const rootElement = document.getElementById('root');
+        rootElement.innerHTML = `
+          <div class="min-h-screen bg-gray-100 p-6">
+            <h1 class="text-3xl font-bold text-center mb-8">Binance Futures Testnet Dashboard</h1>
+            <!-- Debug log removed but code kept for future use -->
+            <div id="loading-message" class="text-center">Loading data from API...</div>
+            <div id="error-message" class="text-red-500 text-center mb-4" style="display: none;"></div>
+            
+            <div id="balance-section" class="bg-white shadow-md rounded-lg p-6 mb-6" style="display: none;">
+              <h2 class="text-xl font-semibold mb-4">Account Balance (USDT)</h2>
+              <div id="balance-content">Loading balance...</div>
+            </div>
+            
+            <div id="pnl-section" class="bg-white shadow-md rounded-lg p-6 mb-6" style="display: none;">
+              <h2 class="text-xl font-semibold mb-4">Unrealized PNL</h2>
+              <div id="pnl-content">Loading PNL data...</div>
+            </div>
+            
+            <div id="transactions-section" class="bg-white shadow-md rounded-lg p-6" style="display: none;">
+              <h2 class="text-xl font-semibold mb-4">Recent Transactions (Last 48 Hours)</h2>
+              <div id="transactions-content">Loading transactions...</div>
+            </div>
+          </div>
+        `;
+        
+        // Debug log display is removed but code is kept for future use
+        /*
+        const logElement = document.getElementById('debug-log');
+        if (logElement) {
+          logElement.textContent = debugLog.join('\n');
+        }
+        */
+        
+        // Function to update UI
+        function updateUI() {
+          log("Updating UI with current state", { 
+            hasBalance: !!balance, 
+            hasPnl: !!pnl, 
+            transactionsCount: transactions?.length || 0,
+            hasError: !!error,
+            isLoading: loading
+          });
+          
+          const loadingMessage = document.getElementById('loading-message');
+          const errorMessage = document.getElementById('error-message');
+          const balanceSection = document.getElementById('balance-section');
+          const balanceContent = document.getElementById('balance-content');
+          const pnlSection = document.getElementById('pnl-section');
+          const pnlContent = document.getElementById('pnl-content');
+          const transactionsSection = document.getElementById('transactions-section');
+          const transactionsContent = document.getElementById('transactions-content');
+          const now = new Date();
+          const formattedTime = now.toLocaleString('pt-PT', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          });
+          
+          // Update loading state
+          if (loading) {
+            loadingMessage.style.display = 'block';
+          } else {
+            loadingMessage.style.display = 'none';
+          }
+          
+          // Update error state
+          if (error) {
+            errorMessage.textContent = error;
+            errorMessage.style.display = 'block';
+          } else {
+            errorMessage.style.display = 'none';
+          }
+          
+          // Update balance section
+          if (balance) {
+            balanceSection.style.display = 'block';
+            balanceContent.innerHTML = `
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p><strong>Available Balance:</strong> ${balance.availableBalance} USDT</p>
+                <p><strong>Wallet Balance:</strong> ${balance.walletBalance} USDT</p>
+                <p>Updated: ${formattedTime} </p>
+              </div>
+            `;
+          }
+          
+          // Update PNL section
+          if (pnl) {
+            pnlSection.style.display = 'block';
+            
+            let pnlHtml = `<p class="mb-4"><strong>Total Unrealized PNL:</strong> ${pnl.totalUnrealizedPNL} USDT</p>`;
+            
+            if (pnl.positions && pnl.positions.length > 0) {
+              pnlHtml += `
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="bg-gray-200">
+                      <th class="p-2">Symbol</th>
+                      <th class="p-2">Unrealized Profit</th>
+                      <th class="p-2">Position Amount</th>
+                      <th class="p-2">Leverage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+              `;
+              
+              pnl.positions.forEach(pos => {
+                pnlHtml += `
+                  <tr class="border-b">
+                    <td class="p-2">${pos.symbol}</td>
+                    <td class="p-2">${pos.unrealizedProfit} USDT</td>
+                    <td class="p-2">${pos.positionAmt}</td>
+                    <td class="p-2">${pos.leverage}x</td>
+                  </tr>
+                `;
+              });
+              
+              pnlHtml += `
+                  </tbody>
+                </table>
+              `;
+            } else {
+              pnlHtml += `<p>No open positions.</p>`;
+            }
+            
+            pnlContent.innerHTML = pnlHtml;
+          }
+          
+          // Update transactions section
+          if (transactions) {
+            transactionsSection.style.display = 'block';
+            
+            if (transactions.length > 0) {
+              // Sort transactions by time in descending order (newest first)
+              const sortedTransactions = [...transactions].sort((a, b) => {
+                const timeA = new Date(a.time).getTime();
+                const timeB = new Date(b.time).getTime();
+                return timeB - timeA; // Descending order
+              });
+              
+              log("Sorted transactions", { 
+                originalCount: transactions.length, 
+                sortedCount: sortedTransactions.length,
+                firstFewSorted: sortedTransactions.slice(0, 3).map(tx => tx.time)
+              });
+              
+              let txHtml = `
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="bg-gray-200">
+                      <th class="p-2">Symbol</th>
+                      <th class="p-2">Side</th>
+                      <th class="p-2">Price</th>
+                      <th class="p-2">Quantity</th>
+                      <th class="p-2">Quote Quantity</th>
+                      <th class="p-2">Commission</th>
+                      <th class="p-2">Time</th>
+                      <th class="p-2">Realized PNL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+              `;
+              
+              sortedTransactions.forEach(tx => {
+                // Format time to 24-hour format with timezone correction
+                const formattedTime = formatDateTo24Hour(tx.time);
+                
+                txHtml += `
+                  <tr class="border-b">
+                    <td class="p-2">${tx.symbol}</td>
+                    <td class="p-2">${tx.side}</td>
+                    <td class="p-2">${tx.price} USDT</td>
+                    <td class="p-2">${tx.qty}</td>
+                    <td class="p-2">${tx.quoteQty || '-'} USDT</td>
+                    <td class="p-2">${tx.commission || '0.00000000'}</td>
+                    <td class="p-2">${formattedTime}</td>
+                    <td class="p-2">${tx.realizedPnl} USDT</td>
+                  </tr>
+                `;
+              });
+              
+              txHtml += `
+                  </tbody>
+                </table>
+              `;
+              
+              transactionsContent.innerHTML = txHtml;
+            } else {
+              transactionsContent.innerHTML = `<p>No transactions in the last 48 hours.</p>`;
+            }
+          }
+        }
+        
+        // Fetch data
+        async function fetchData() {
+          try {
+            log("Starting data fetch");
+            
+            // First check if the API is accessible
+            log("Checking API health");
+            try {
+              const healthRes = await fetch(`${API_BASE_URL}/health`);
+              log(`Health check status: ${healthRes.status}`);
+              
+              if (!healthRes.ok) {
+                throw new Error(`API health check failed: ${healthRes.status}`);
+              }
+              
+              const healthData = await healthRes.json();
+              log("API health check passed", healthData);
+            } catch (healthErr) {
+              log("Health check error", healthErr);
+              error = `API health check failed: ${healthErr.message}`;
+              loading = false;
+              updateUI();
+              return;
+            }
+            
+            // Fetch balance
+            log("Fetching balance");
+            try {
+              const balanceRes = await fetch(`${API_BASE_URL}/api/balance`);
+              log(`Balance response status: ${balanceRes.status}`);
+              
+              if (!balanceRes.ok) {
+                const errorText = await balanceRes.text();
+                log("Balance error text", errorText);
+                throw new Error(`Failed to fetch balance: ${balanceRes.status}`);
+              }
+              
+              const balanceText = await balanceRes.text();
+              log("Balance response text", balanceText);
+              
+              try {
+                balance = JSON.parse(balanceText);
+                log("Parsed balance data", balance);
+              } catch (parseErr) {
+                log("Balance JSON parse error", parseErr);
+                throw new Error(`Failed to parse balance data: ${parseErr.message}`);
+              }
+            } catch (balanceErr) {
+              log("Balance fetch error", balanceErr);
+              error = `Failed to load balance: ${balanceErr.message}`;
+              // Continue with other requests even if balance fails
+            }
+            
+            // Fetch unrealized PNL
+            log("Fetching PNL");
+            try {
+              const pnlRes = await fetch(`${API_BASE_URL}/api/unrealized-pnl`);
+              log(`PNL response status: ${pnlRes.status}`);
+              
+              if (!pnlRes.ok) {
+                log("PNL error status", pnlRes.status);
+              } else {
+                const pnlText = await pnlRes.text();
+                log("PNL response text", pnlText);
+                
+                try {
+                  pnl = JSON.parse(pnlText);
+                  log("Parsed PNL data", pnl);
+                } catch (parseErr) {
+                  log("PNL JSON parse error", parseErr);
+                }
+              }
+            } catch (pnlErr) {
+              log("PNL fetch error", pnlErr);
+              // Continue with other requests even if PNL fails
+            }
+            
+            // Fetch transactions
+            log("Fetching transactions");
+            try {
+              const txRes = await fetch(`${API_BASE_URL}/api/transactions`);
+              log(`Transactions response status: ${txRes.status}`);
+              
+              if (!txRes.ok) {
+                log("Transactions error status", txRes.status);
+              } else {
+                const txText = await txRes.text();
+                log("Transactions response text", txText);
+                
+                try {
+                  transactions = JSON.parse(txText);
+                  log("Parsed transactions data", transactions);
+                } catch (parseErr) {
+                  log("Transactions JSON parse error", parseErr);
+                }
+              }
+            } catch (txErr) {
+              log("Transactions fetch error", txErr);
+              // Continue even if transactions fail
+            }
+            
+            // Update loading state
+            loading = false;
+            
+            // Update UI with fetched data
+            updateUI();
+            
+            log("Data fetch complete");
+          } catch (err) {
+            log("Main fetch error", err);
+            error = `Failed to load data: ${err.message}`;
+            loading = false;
+            updateUI();
+          }
+        }
+        
+        // Initial UI update
+        updateUI();
+        
+        // Start data fetch
+        fetchData();
+        
+        log("Dashboard render complete");
+      } catch (err) {
+        log("Fatal dashboard error", err);
+        document.getElementById('root').innerHTML = `
+          <div class="min-h-screen bg-gray-100 p-6">
+            <h1 class="text-3xl font-bold text-center mb-8">Binance Futures Testnet Dashboard</h1>
+            <p class="text-red-500 text-center">Error rendering dashboard: ${err.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    // Start rendering when DOM is ready
+    document.addEventListener('DOMContentLoaded', renderDashboard);
+    
+    // If DOM is already loaded, render immediately
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      renderDashboard();
+    }
+  </script>
+</body>
+</html>
