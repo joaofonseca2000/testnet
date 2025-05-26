@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="300">
+  <title>Binance Testnet Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.7/dist/axios.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="loading" class="flex items-center justify-center h-screen">
+    Loading dashboard... If this persists, check the browser console (F12).
+  </div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const Dashboard = () => {
+      const [balance, setBalance] = useState(null);
+      const [pnlData, setPnlData] = useState(null);
+      const [transactions, setTransactions] = useState([]);
+      const [openOrders, setOpenOrders] = useState({ count: 0, orders: [] });
+      const [currentPrice, setCurrentPrice] = useState(null);
+      const [error, setError] = useState(null);
+      const now = new Date();
+      const formattedTime = now.toLocaleString('pt-PT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+
+      // Fetch data from API
+      useEffect(() => {
+        const fetchData = async () => {
+          try {
+            // Hide loading message
+            document.getElementById('loading').style.display = 'none';
+
+            // Fetch current price
+            const priceRes = await axios.get('/api/current-price');
+            setCurrentPrice(priceRes.data.price);
+
+            // Fetch balance
+            const balanceRes = await axios.get('/api/balance');
+            setBalance(balanceRes.data);
+
+            // Fetch unrealized PNL
+            const pnlRes = await axios.get('/api/unrealized-pnl');
+            setPnlData(pnlRes.data);
+
+            // Fetch transactions
+            const transactionsRes = await axios.get('/api/transactions');
+            // Debug: Log raw transactions and time range
+            console.log('Fetched transactions:', transactionsRes.data);
+            console.log('Expected time range (GMT+1):', {
+              startTime: new Date(Date.now() - 48 * 60 * 60 * 1000).toLocaleString('en-GB', { timeZone: 'Europe/Lisbon' }),
+              endTime: new Date(Date.now()).toLocaleString('en-GB', { timeZone: 'Europe/Lisbon' }),
+            });
+            // Sort transactions by time (most recent first)
+            const sortedTransactions = transactionsRes.data.sort((a, b) => {
+              const dateA = new Date(a.time);
+              const dateB = new Date(b.time);
+              // Debug: Log parsing issues
+              if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+                console.warn('Invalid date detected:', { a: a.time, b: b.time });
+              }
+              return dateB.getTime() - dateA.getTime(); // Newest first
+            });
+            // Debug: Log sorted transactions
+            console.log('Sorted transactions:', sortedTransactions);
+            sortedTransactions.forEach((trade, index) => {
+              console.log(`Trade ${index + 1} time:`, trade.time, new Date(trade.time));
+            });
+            setTransactions(sortedTransactions);
+
+            // Fetch open orders
+            const ordersRes = await axios.get('/api/open-orders');
+            setOpenOrders(ordersRes.data);
+          } catch (err) {
+            setError('Failed to load dashboard data. Check console for details.');
+            console.error(err);
+          }
+        };
+        fetchData();
+      }, []);
+
+      if (error) {
+        return (
+          <div className="flex items-center justify-center h-screen">
+            <p className="text-red-500">{error}</p>
+          </div>
+        );
+      }
+
+      if (!balance || !pnlData || !transactions || !currentPrice) {
+        return null; // Loading message is shown by default
+      }
+
+      // Date formatter for GMT+1, 24-hour format
+      const dateFormatter = new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Europe/Lisbon', // GMT+1 (WEST)
+      });
+
+      return (
+        <div className="container mx-auto p-4">
+          <h1 className="text-2xl font-bold mb-4 text-center">Binance Testnet Dashboard</h1>
+
+          {/* Wallet Value Section */}
+          <div className="bg-white p-4 rounded shadow mb-4">
+            <h2 className="text-xl font-semibold">Wallet Value (USDT)</h2>
+            <p>
+              <strong>Available Balance:</strong> ${balance.availableBalance} |{' '}
+              <strong>Wallet Balance:</strong> ${balance.walletBalance}
+              <p>Updated: {formattedTime} </p>
+            </p>
+          </div>
+
+          {/* Unrealized PNL Section */}
+          <div className="bg-white p-4 rounded shadow mb-4">
+            <h2 className="text-xl font-semibold">Unrealized PNL</h2>
+            <p><strong>Total Unrealized PNL:</strong> ${pnlData.totalUnrealizedPNL}</p>
+            <p>Price: ${currentPrice}</p>
+
+            {/* Open Orders Table */}
+            <p><strong>Open Orders</strong></p>
+            {openOrders.count === 0 ? (
+              <p>No open orders.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Side</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {openOrders.orders.map((order) => (
+                      <tr key={order.orderId}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.orderId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.type}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.side}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.price}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Most Recent Transactions Section */}
+          <div className="bg-white p-4 rounded shadow">
+            <h2 className="text-xl font-semibold mb-2">Most Recent Transactions with Realized PNL (Latest 50)</h2>
+            {transactions.length === 0 ? (
+              <p>No transactions with realized PNL found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Side</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quote Qty</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Realized PNL</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {transactions.map((trade, index) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.symbol}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.side}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${trade.price}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.qty}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${trade.quoteQty}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.commission}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {dateFormatter.format(new Date(trade.time))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`font-bold ${parseFloat(trade.realizedPnl) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            ${trade.realizedPnl}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<Dashboard />, document.getElementById('root'));
+  </script>
+</body>
+</html>
