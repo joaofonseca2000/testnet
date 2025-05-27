@@ -118,7 +118,7 @@
 
       return (
         <div className="container mx-auto p-4">
-          <h1 className="text-2xl font-bold mb-4 text-center">Binance Testnet Dashboard</h1>
+          <h1 className="text-2xl font-bold mb-4 text-center">The Trader Testnet Dashboard</h1>
 
           {/* Wallet Value Section */}
           <div className="bg-white p-4 rounded shadow mb-4">
@@ -196,7 +196,7 @@
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${trade.quoteQty}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.commission}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {dateFormatter.format(new Date(trade.time))}
+                          {dateFormatter.format(new Date(trade.time + (trade.time.endsWith('Z') ? '' : 'Z')))}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className={`font-bold ${parseFloat(trade.realizedPnl) < 0 ? 'text-red-600' : 'text-green-600'}`}>
