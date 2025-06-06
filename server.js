@@ -90,7 +90,10 @@ app.get('/api/current-price', async (req, res) => {
     });
     console.log('Price response:', response.data); // Debug log
     res.json({
-      price: parseFloat(response.data.price).toFixed(2),
+      price: parseFloat(response.data.price).toLocaleString('pt-PT', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }),
     });
   } catch (error) {
     handleError(res, error, 'Error fetching current price');
@@ -107,8 +110,14 @@ app.get('/api/balance', async (req, res) => {
     if (!usdtBalance) throw new Error('USDT asset not found');
     
     res.json({
-      availableBalance: parseFloat(usdtBalance.availableBalance).toFixed(2),
-      walletBalance: parseFloat(usdtBalance.walletBalance).toFixed(2),
+      availableBalance: parseFloat(usdtBalance.availableBalance).toLocaleString('pt-PT', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }),
+      walletBalance: parseFloat(usdtBalance.walletBalance).toLocaleString('pt-PT', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }),
     });
   } catch (error) {
     handleError(res, error, 'Error fetching balance');
@@ -125,10 +134,16 @@ app.get('/api/unrealized-pnl', async (req, res) => {
     const totalUnrealizedPNL = openPositions.reduce((sum, pos) => sum + parseFloat(pos.unRealizedProfit), 0);
     
     res.json({
-      totalUnrealizedPNL: totalUnrealizedPNL.toFixed(2),
+      totalUnrealizedPNL: totalUnrealizedPNL.toLocaleString('pt-PT', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }),
       positions: openPositions.map(pos => ({
         symbol: pos.symbol,
-        unrealizedProfit: parseFloat(pos.unRealizedProfit).toFixed(2),
+        unrealizedProfit: parseFloat(pos.unRealizedProfit).toLocaleString('pt-PT', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }),
         positionAmt: parseFloat(pos.positionAmt),
         leverage: pos.leverage,
       })),
@@ -166,7 +181,10 @@ app.get('/api/open-orders', async (req, res) => {
         orderId: order.orderId,
         type: orderDescription,
         side,
-        price: parseFloat(price).toFixed(2) || price,
+        price: parseFloat(price).toLocaleString('pt-PT', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }) || price,
       };
     });
 
@@ -257,12 +275,35 @@ app.get('/api/transactions', async (req, res) => {
       limitedTrades.map(trade => ({
         symbol: trade.symbol,
         side: trade.side,
-        price: parseFloat(trade.price).toFixed(2),
-        qty: parseFloat(trade.qty).toFixed(4),
-        quoteQty: parseFloat(trade.quoteQty || (trade.price * trade.qty)).toFixed(4),
-        commission: parseFloat(trade.commission || 0).toFixed(8),
-        time: new Date(parseInt(trade.time)).toLocaleString(),
-        realizedPnl: parseFloat(trade.realizedPnl).toFixed(2),
+        price: parseFloat(trade.price).toLocaleString('pt-PT', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }),
+        qty: parseFloat(trade.qty).toLocaleString('pt-PT', {
+          minimumFractionDigits: 4,
+          maximumFractionDigits: 4
+        }),
+        quoteQty: parseFloat(trade.quoteQty || (trade.price * trade.qty)).toLocaleString('pt-PT', {
+          minimumFractionDigits: 4,
+          maximumFractionDigits: 4
+        }),
+        commission: parseFloat(trade.commission || 0).toLocaleString('pt-PT', {
+          minimumFractionDigits: 8,
+          maximumFractionDigits: 8
+        }),
+        time: new Date(parseInt(trade.time)).toLocaleString('pt-PT', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Europe/Lisbon'
+        }),
+        realizedPnl: parseFloat(trade.realizedPnl).toLocaleString('pt-PT', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }),
       }))
     );
   } catch (error) {
