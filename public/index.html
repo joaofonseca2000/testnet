@@ -62,8 +62,8 @@
             // Debug: Log raw transactions and time range
             console.log('Fetched transactions:', transactionsRes.data);
             console.log('Expected time range (GMT+1):', {
-              startTime: new Date(Date.now() - 48 * 60 * 60 * 1000).toLocaleString('en-GB', { timeZone: 'Europe/Lisbon' }),
-              endTime: new Date(Date.now()).toLocaleString('en-GB', { timeZone: 'Europe/Lisbon' }),
+              startTime: new Date(Date.now() - 48 * 60 * 60 * 1000).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' }),
+              endTime: new Date(Date.now()).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' }),
             });
             // Sort transactions by time (most recent first)
             const sortedTransactions = transactionsRes.data.sort((a, b) => {
@@ -105,8 +105,17 @@
         return null; // Loading message is shown by default
       }
 
+       // Portuguese number formatter
+      const formatNumber = (number) => {
+          if (number === null || number === undefined) return 'N/A';
+          return parseFloat(number).toLocaleString('pt-PT', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+          });
+      };
+      
       // Date formatter for GMT+1, 24-hour format
-      const dateFormatter = new Intl.DateTimeFormat('en-GB', {
+      const dateFormatter = new Intl.DateTimeFormat('pt-PT', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -191,15 +200,15 @@
                       <tr key={index}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.symbol}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.side}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${trade.price}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.price}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.qty}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${trade.quoteQty}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.quoteQty}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.commission}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {dateFormatter.format(new Date(trade.time))}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`font-bold ${parseFloat(trade.realizedPnl) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          <span className={`font-bold {parseFloat(trade.realizedPnl) < 0 ? 'text-red-600' : 'text-green-600'}`}>
                             ${trade.realizedPnl}
                           </span>
                         </td>
